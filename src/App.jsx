@@ -12,8 +12,9 @@ import AuthModal from './components/AuthModal';
 import LoginPage from './components/LoginPage';
 import HomePage from './components/HomePage';
 import MonetizationModal from './components/MonetizationModal';
-import SportsStore from './components/SportsStore';
-import { ShieldCheck, Flame, Sun, Moon, AlertTriangle, Calendar, Activity, BookOpen, HeartPulse, User, Crown, Server, LogIn, Home, Globe, Palette, ShoppingBag } from 'lucide-react';
+import SportsStore, { EXPANDED_PRODUCTS } from './components/SportsStore';
+import AdminPanel from './components/AdminPanel';
+import { ShieldCheck, Flame, Sun, Moon, AlertTriangle, Calendar, Activity, BookOpen, HeartPulse, User, Crown, Server, LogIn, Home, Globe, Palette, ShoppingBag, ShieldAlert } from 'lucide-react';
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('hr_theme') || 'sunset');
@@ -26,6 +27,31 @@ export default function App() {
 
   const [apiOnline, setApiOnline] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Dynamic Products List State (Managed by Admin Panel)
+  const [productsList, setProductsList] = useState(() => {
+    const saved = localStorage.getItem('hr_admin_products');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return EXPANDED_PRODUCTS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('hr_admin_products', JSON.stringify(productsList));
+  }, [productsList]);
+
+  const handleAddProduct = (newProduct) => {
+    setProductsList(prev => [newProduct, ...prev]);
+  };
+
+  const handleUpdateProduct = (updatedProduct) => {
+    setProductsList(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  };
+
+  const handleDeleteProduct = (productId) => {
+    setProductsList(prev => prev.filter(p => p.id !== productId));
+  };
 
   // App State loaded from localStorage or INITIAL_USER_DATA
   const [userData, setUserData] = useState(() => {
@@ -137,7 +163,9 @@ export default function App() {
 
   const handleAuthSuccess = (user) => {
     setCurrentUser(user);
-    alert(`Xush kelibsiz, ${user.full_name}!`);
+    if (user?.email === 'admin@hayotritmi.uz' || user?.role === 'admin') {
+      setActiveTab('admin');
+    }
     setViewMode('app');
   };
 
@@ -264,6 +292,18 @@ export default function App() {
             <LogIn size={16} /> {currentUser ? currentUser.full_name.split(' ')[0] : t.login}
           </button>
 
+          {/* Admin Panel Header Trigger for logged in Admin */}
+          {(currentUser?.email === 'admin@hayotritmi.uz' || currentUser?.role === 'admin') && (
+            <button 
+              className="quick-action-btn"
+              onClick={() => setActiveTab('admin')}
+              style={{ background: 'var(--accent-rose-bg)', color: 'var(--accent-rose-light)', borderColor: 'rgba(239, 68, 68, 0.35)', fontWeight: '800' }}
+              title="Admin Panel"
+            >
+              <ShieldAlert size={16} /> Admin Panel
+            </button>
+          )}
+
           <div className="streak-badge" title="Ketma-ket kunlar soni">
             <Flame size={16} color="var(--accent-amber)" /> {userData.currentStreak} {t.streak}
           </div>
@@ -369,7 +409,17 @@ export default function App() {
       )}
 
       {activeTab === 'store' && (
-        <SportsStore streakCount={userData.currentStreak} />
+        <SportsStore products={productsList} streakCount={userData.currentStreak} />
+      )}
+
+      {activeTab === 'admin' && (
+        <AdminPanel 
+          currentUser={currentUser}
+          products={productsList}
+          onAddProduct={handleAddProduct}
+          onUpdateProduct={handleUpdateProduct}
+          onDeleteProduct={handleDeleteProduct}
+        />
       )}
 
       {/* Privacy Transparency Modal */}
